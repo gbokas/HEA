@@ -130,18 +130,17 @@ def computeValuesQuaternary(elems, nameDatabase):
 def computeValuesQuinary(elems, nameDatabase):
     df_a = pd.read_hdf(nameDatabase, key='a')
     df_abcde = pd.read_hdf(nameDatabase, key='abcde_with_total')
-    collect = combinations(elems, 5)
+    collect = iter(list(combinations(elems, 5))[50000:])
     numberofElements = []
     final_energy = []
     counter = 0
+    totalDf = pd.DataFrame()
+    totalDf_stable = pd.DataFrame()
     for element in collect:
-        df_stable=pd.read_hdf('data_FCC.h5', key="stable_quaternaries_Hull")
-        try:
-            if not totalDf.empty:
-                pass
-        except:
-            totalDf = pd.DataFrame()
-            totalDf_stable = pd.DataFrame()
+        start = time()
+        df_stable=pd.read_hdf('data_FCC.h5', key="stable_quaternaries_Hull_1000")
+        #test = (set(SplitUpperCase(i)).issubset(element) for i, j in zip(df_stable['Composition'], df_stable['Ehull']))
+        df_stable= df_stable[list((set(SplitUpperCase(i)).issubset(element) for i in df_stable['Composition']))]
         entriesInside = []
         counter += 1
         computedEntries = ComputedEntry(element[0],df_a[df_a['reduced']==element[0]].etotal.values[0],attribute=1)
@@ -154,20 +153,36 @@ def computeValuesQuinary(elems, nameDatabase):
         entriesInside.append(computedEntries)
         computedEntries = ComputedEntry(element[4],df_a[df_a['reduced']==element[4]].etotal.values[0],attribute=1)
         entriesInside.append(computedEntries)
-        for index, row in df_stable.iterrows():
-            if set(SplitUpperCase(row['Composition'])).issubset(element):
-                computedEntries = ComputedEntry(row['Formula'], row['energy'],attribute=row['NElements'])
-                entriesInside.append(computedEntries)
-        for index, row in df_abcde.iterrows():
-             if set(row['decomposition']).issubset(element):
-                computedEntries = ComputedEntry(row['decomposition'][0]+"12"+row['decomposition'][1]+"12"+row['decomposition'][2]+"12"+row['decomposition'][3]+"12"
-				+row['decomposition'][4]+"12", row['Total_energy'],attribute=5)
+        dfFormulaNumpystable = df_stable['Formula'].values
+        dfEnergyNumpystable = df_stable['energy'].values
+        dfEnergyNumpyelements = df_stable['NElements'].values
+        for formula, energy, elems in zip(dfFormulaNumpystable, dfEnergyNumpystable, dfEnergyNumpyelements):
+            computedEntries = ComputedEntry(formula, energy ,attribute=elems)
+            entriesInside.append(computedEntries)
+        #for index, row in df_stable.iterrows():
+        #    print(row['Formula'])
+            #if set(SplitUpperCase(row['Composition'])).issubset(element):
+        #    computedEntries = ComputedEntry(row['Formula'], row['energy'],attribute=row['NElements'])
+        #    entriesInside.append(computedEntries)
+        dfDecompNumpy = df_abcde['decomposition'].values
+        dfEnergyNumpy = df_abcde['Total_energy'].values
+        for decomp, energy in zip(dfDecompNumpy, dfEnergyNumpy):
+            if set(decomp).issubset(element):
+                computedEntries = ComputedEntry(decomp[0]+"12"+decomp[1]+"12"+decomp[2]+"12"+decomp[3]+"12"
+			+decomp[4]+"12", energy - entropy_mix(5) * 1000 * 60,attribute=5)
                 entriesInside.append(computedEntries)
                 break
+        #for index, row in df_abcde.iterrows():
+        #    if set(row['decomposition']).issubset(element):
+        #        computedEntries = ComputedEntry(row['decomposition'][0]+"12"+row['decomposition'][1]+"12"+row['decomposition'][2]+"12"+row['decomposition'][3]+"12"
+	#		+row['decomposition'][4]+"12", row['Total_energy'],attribute=5)
+        #        entriesInside.append(computedEntries)
+        #        break
         df, df_stable = convexHull(entriesInside)
         totalDf_stable = totalDf_stable.append(df_stable, ignore_index = True)
         totalDf = totalDf.append(df, ignore_index = True) 
         print(counter, element)
+        print(time()-start)
     return totalDf, totalDf_stable
 
 
@@ -307,16 +322,17 @@ if __name__ == "__main__":
     #        print(compo, energy)
     #df.to_hdf('data_FCC.h5',key='ternaries_Hull', format='table', min_itemsize={'Decomposition' : 70})
     #df_stable.to_hdf('data_FCC.h5', key="stable_ternaries_Hull", format='table', min_itemsize={'Decomposition':70})
-    df, df_stable = computeValuesQuaternary(['Al', 'Co', 'Cr', 'Cu', 'Fe', 'Hf', 'Mn','Mo', 'Nb', 'Ni', 'Ta', 'Ti', 'W', 'Zr','V', 'Mg', 'Re', 'Os', 'Rh', 'Ir', 'Pd','Pt', 'Ag', 'Au', 'Zn', 'Cd', 'Hg'], "data_FCC.h5")
-    df.drop_duplicates(inplace=True)
-    df_stable.drop_duplicates(inplace=True)
-    df.to_hdf('data_FCC.h5',key='quaternaries_Hull', format='table', min_itemsize={'Decomposition' : 70})
-    df_stable.to_hdf('data_FCC.h5', key="stable_quaternaries_Hull", format='table', min_itemsize={'Decomposition':70})
+    #df, df_stable = computeValuesQuaternary(['Al', 'Co', 'Cr', 'Cu', 'Fe', 'Hf', 'Mn','Mo', 'Nb', 'Ni', 'Ta', 'Ti', 'W', 'Zr','V', 'Mg', 'Re', 'Os', 'Rh', 'Ir', 'Pd','Pt', 'Ag', 'Au', 'Zn', 'Cd', 'Hg'], "data_FCC.h5")
+    #df.drop_duplicates(inplace=True)
+    #df_stable.drop_duplicates(inplace=True)
+    #df.to_hdf('data_FCC.h5',key='quaternaries_Hull', format='table', min_itemsize={'Decomposition' : 70})
+    #df_stable.to_hdf('data_FCC.h5', key="stable_quaternaries_Hull", format='table', min_itemsize={'Decomposition':70})
     df, df_stable = computeValuesQuinary(['Al', 'Co', 'Cr', 'Cu', 'Fe', 'Hf', 'Mn','Mo', 'Nb', 'Ni', 'Ta', 'Ti', 'W', 'Zr','V', 'Mg', 'Re', 'Os', 'Rh', 'Ir', 'Pd','Pt', 'Ag', 'Au', 'Zn', 'Cd', 'Hg'], "data_FCC.h5")
     df.drop_duplicates(inplace=True)
     df_stable.drop_duplicates(inplace=True)
-    df.to_hdf('data_FCC.h5',key='quinaries_Hull', format='table', min_itemsize={'Decomposition' : 70})
-    df_stable.to_hdf('data_FCC.h5', key="stable_quinaries_Hull", format='table', min_itemsize={'Decomposition':70})
+    print(df_stable)
+    df.to_hdf('data_FCC.h5',key='quinaries_Hull_1000', format='table',append=True, min_itemsize={'Decomposition' : 70})
+    df_stable.to_hdf('data_FCC.h5', key="stable_quinaries_Hull_1000", format='table', append=True, min_itemsize={'Decomposition':70})
     #df.to_hdf('data_FCC.h5',key='all_together',format='table',min_itemsize={'Decomposition' : 70})
 #    df_abc = CalculateEnergy("data_FCC.h5", 3, ['Al', 'Co', 'Cr', 'Cu', 'Fe', 'Hf', 'Mn','Mo', 'Nb', 'Ni', 'Ta', 'Ti', 'W', 'Zr','V', 'Mg', 'Re', 'Os', 'Rh', 'Ir', 'Pd','Pt', 'Ag', 'Au', 'Zn', 'Cd', 'Hg'])
 #    print("finish 3")
